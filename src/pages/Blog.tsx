@@ -1,6 +1,104 @@
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
-import { Calendar, Clock, ArrowLeft, Share2, Twitter, Linkedin } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, Share2, Twitter, Linkedin, Sparkles, BookOpen, Send } from 'lucide-react';
+import { useRef, Suspense, useMemo } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Float, MeshDistortMaterial, Environment } from '@react-three/drei';
+import * as THREE from 'three';
+import { AnimatedLetters, RevealText } from '@/components/animations/AnimatedText';
+import { MagneticButton } from '@/components/animations/MagneticButton';
+import { TiltCard, FloatingElement } from '@/components/animations/GlowingCard';
+
+// 3D Scene for Blog page
+const BlogScene = () => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const secondMeshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = state.clock.elapsedTime * 0.1;
+      meshRef.current.rotation.y = state.clock.elapsedTime * 0.15;
+      meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.3;
+    }
+    if (secondMeshRef.current) {
+      secondMeshRef.current.rotation.x = -state.clock.elapsedTime * 0.08;
+      secondMeshRef.current.rotation.z = state.clock.elapsedTime * 0.12;
+    }
+  });
+
+  return (
+    <>
+      <ambientLight intensity={0.3} />
+      <directionalLight position={[5, 5, 5]} intensity={0.8} />
+      <pointLight position={[-5, -5, -5]} color="#FF4800" intensity={1} />
+      <Environment preset="night" />
+
+      <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+        <mesh ref={meshRef} position={[-2, 0, 0]}>
+          <dodecahedronGeometry args={[1, 0]} />
+          <MeshDistortMaterial
+            color="#FF4800"
+            metalness={0.8}
+            roughness={0.2}
+            distort={0.2}
+            speed={2}
+          />
+        </mesh>
+      </Float>
+
+      <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.8}>
+        <mesh ref={secondMeshRef} position={[2, 1, -1]}>
+          <octahedronGeometry args={[0.8, 0]} />
+          <MeshDistortMaterial
+            color="#FF4800"
+            metalness={0.6}
+            roughness={0.3}
+            distort={0.3}
+            speed={1.5}
+            wireframe
+          />
+        </mesh>
+      </Float>
+
+      <BlogParticles />
+    </>
+  );
+};
+
+const BlogParticles = () => {
+  const particlesRef = useRef<THREE.Points>(null);
+  
+  const particlesPosition = useMemo(() => {
+    const positions = new Float32Array(150 * 3);
+    for (let i = 0; i < 150; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 12;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 12;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+    }
+    return positions;
+  }, []);
+
+  useFrame((state) => {
+    if (particlesRef.current) {
+      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.02;
+      particlesRef.current.rotation.x = state.clock.elapsedTime * 0.01;
+    }
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={150}
+          array={particlesPosition}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial size={0.04} color="#FF4800" transparent opacity={0.6} />
+    </points>
+  );
+};
 
 const blogPosts = [
   {
@@ -111,80 +209,209 @@ const blogPosts = [
 
 const BlogPost = ({ post }: { post: typeof blogPosts[0] }) => {
   const relatedPosts = blogPosts.filter(p => p.id !== post.id && p.category === post.category).slice(0, 2);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   
   return (
     <div className="pt-32">
+      {/* Back Link */}
       <div className="container-wide py-8">
-        <Link to="/blog" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-4 h-4" />
+        <Link to="/blog" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group">
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Blog
         </Link>
       </div>
 
-      <header className="pb-12">
-        <div className="container-wide max-w-4xl">
+      {/* Header */}
+      <header className="pb-12 relative overflow-hidden">
+        {/* Animated SVG Background */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 1200 400">
+          <motion.path
+            d="M 0 200 Q 300 100 600 200 T 1200 200"
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="0.5"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 3, repeat: Infinity, repeatType: "loop" }}
+          />
+          <motion.circle
+            cx="100"
+            cy="100"
+            r="50"
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="0.5"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: [0.8, 1.2, 0.8] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+        </svg>
+
+        <div className="container-wide max-w-4xl relative z-10">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="text-primary text-sm font-semibold uppercase tracking-wider">{post.category}</span>
-            <h1 className="text-3xl md:text-5xl font-bold text-foreground mt-4 mb-6">{post.title}</h1>
-            <div className="flex flex-wrap items-center gap-6 text-muted-foreground">
+            <motion.span 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-primary text-sm font-semibold uppercase tracking-wider mb-6"
+            >
+              <BookOpen className="w-4 h-4" />
+              {post.category}
+            </motion.span>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6">
+              <AnimatedLetters text={post.title} delay={0.05} />
+            </h1>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap items-center gap-6 text-muted-foreground"
+            >
               <div className="flex items-center gap-3">
-                <img src={post.author.avatar} alt={post.author.name} className="w-10 h-10 rounded-full object-cover" />
+                <motion.img 
+                  src={post.author.avatar} 
+                  alt={post.author.name} 
+                  className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/30"
+                  whileHover={{ scale: 1.1 }}
+                />
                 <div>
                   <p className="text-foreground font-medium">{post.author.name}</p>
                   <p className="text-sm">{post.author.role}</p>
                 </div>
               </div>
-              <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{post.date}</span>
-              <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{post.readTime}</span>
-            </div>
+              <span className="flex items-center gap-2 glass px-3 py-1 rounded-full">
+                <Calendar className="w-4 h-4 text-primary" />
+                {post.date}
+              </span>
+              <span className="flex items-center gap-2 glass px-3 py-1 rounded-full">
+                <Clock className="w-4 h-4 text-primary" />
+                {post.readTime}
+              </span>
+            </motion.div>
           </motion.div>
         </div>
       </header>
 
-      <section className="pb-12">
+      {/* Hero Image with Parallax */}
+      <section className="pb-12" ref={heroRef}>
         <div className="container-wide max-w-5xl">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-3xl overflow-hidden aspect-video">
-            <img src={post.image} alt={post.title} className="w-full h-full object-cover" />
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ delay: 0.2 }} 
+            className="rounded-3xl overflow-hidden aspect-video relative"
+            style={{ y: heroY }}
+          >
+            <motion.img 
+              src={post.image} 
+              alt={post.title} 
+              className="w-full h-full object-cover"
+              style={{ scale: heroScale }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent" />
           </motion.div>
         </div>
       </section>
 
+      {/* Article Content */}
       <article className="pb-16">
         <div className="container-wide max-w-3xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="prose prose-invert prose-lg max-w-none [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-foreground [&>h2]:mt-8 [&>h2]:mb-4 [&>p]:text-muted-foreground [&>p]:leading-relaxed [&>p]:mb-4" dangerouslySetInnerHTML={{ __html: post.content }} />
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ delay: 0.3 }} 
+            className="prose prose-invert prose-lg max-w-none [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-foreground [&>h2]:mt-8 [&>h2]:mb-4 [&>p]:text-muted-foreground [&>p]:leading-relaxed [&>p]:mb-4" 
+            dangerouslySetInnerHTML={{ __html: post.content }} 
+          />
         </div>
       </article>
 
+      {/* Share Section */}
       <section className="pb-16">
         <div className="container-wide max-w-3xl">
-          <div className="card-glass p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="text-foreground font-medium">Share this article</span>
-            <div className="flex gap-3">
-              {[Twitter, Linkedin, Share2].map((Icon, i) => (
-                <motion.button key={i} className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Icon className="w-4 h-4" />
-                </motion.button>
-              ))}
-            </div>
-          </div>
+          <TiltCard>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="card-glass p-6 flex flex-col sm:flex-row items-center justify-between gap-4"
+            >
+              <span className="text-foreground font-medium flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Share this article
+              </span>
+              <div className="flex gap-3">
+                {[
+                  { Icon: Twitter, label: 'Twitter' },
+                  { Icon: Linkedin, label: 'LinkedIn' },
+                  { Icon: Share2, label: 'Share' }
+                ].map(({ Icon, label }) => (
+                  <MagneticButton key={label}>
+                    <motion.button 
+                      className="w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors" 
+                      whileHover={{ scale: 1.1 }} 
+                      whileTap={{ scale: 0.9 }}
+                      aria-label={label}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </motion.button>
+                  </MagneticButton>
+                ))}
+              </div>
+            </motion.div>
+          </TiltCard>
         </div>
       </section>
 
+      {/* Related Articles */}
       {relatedPosts.length > 0 && (
-        <section className="section-padding bg-card/30">
-          <div className="container-wide">
-            <h2 className="text-2xl font-bold text-foreground mb-8">Related Articles</h2>
+        <section className="section-padding bg-card/30 relative overflow-hidden">
+          {/* 3D Background */}
+          <div className="absolute inset-0 opacity-20">
+            <Canvas camera={{ position: [0, 0, 5], fov: 50 }} dpr={[1, 2]}>
+              <Suspense fallback={null}>
+                <BlogScene />
+              </Suspense>
+            </Canvas>
+          </div>
+
+          <div className="container-wide relative z-10">
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-2xl md:text-3xl font-bold text-foreground mb-8"
+            >
+              Related <span className="gradient-text">Articles</span>
+            </motion.h2>
             <div className="grid md:grid-cols-2 gap-8">
               {relatedPosts.map((relatedPost, index) => (
-                <motion.article key={relatedPost.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                  <Link to={`/blog/${relatedPost.id}`} className="block group">
-                    <div className="relative overflow-hidden rounded-2xl aspect-[3/2] mb-4">
-                      <img src={relatedPost.image} alt={relatedPost.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">{relatedPost.title}</h3>
-                    <p className="text-muted-foreground text-sm">{relatedPost.excerpt}</p>
-                  </Link>
-                </motion.article>
+                <TiltCard key={relatedPost.id}>
+                  <motion.article 
+                    initial={{ opacity: 0, y: 30 }} 
+                    whileInView={{ opacity: 1, y: 0 }} 
+                    viewport={{ once: true }} 
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Link to={`/blog/${relatedPost.id}`} className="block group">
+                      <div className="relative overflow-hidden rounded-2xl aspect-[3/2] mb-4">
+                        <motion.img 
+                          src={relatedPost.image} 
+                          alt={relatedPost.title} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">{relatedPost.title}</h3>
+                      <p className="text-muted-foreground text-sm">{relatedPost.excerpt}</p>
+                    </Link>
+                  </motion.article>
+                </TiltCard>
               ))}
             </div>
           </div>
@@ -197,90 +424,266 @@ const BlogPost = ({ post }: { post: typeof blogPosts[0] }) => {
 const BlogList = () => {
   const featuredPost = blogPosts.find(post => post.featured);
   const regularPosts = blogPosts.filter(post => !post.featured);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
   return (
     <div className="pt-32">
-      <section className="section-padding">
-        <div className="container-wide">
-          <div className="max-w-4xl mx-auto text-center">
-            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-primary text-sm font-semibold uppercase tracking-wider">Our Blog</motion.span>
-            <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-6xl font-bold text-foreground mt-4 mb-6">
-              Insights & <span className="gradient-text">Ideas</span>
-            </motion.h1>
-            <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-lg text-muted-foreground">
-              Thoughts on design, development, and building products that matter.
-            </motion.p>
-          </div>
+      {/* Hero Section with 3D */}
+      <section className="section-padding relative overflow-hidden" ref={heroRef}>
+        {/* 3D Scene */}
+        <div className="absolute inset-0 opacity-40">
+          <Canvas camera={{ position: [0, 0, 5], fov: 50 }} dpr={[1, 2]}>
+            <Suspense fallback={null}>
+              <BlogScene />
+            </Suspense>
+          </Canvas>
         </div>
+
+        {/* Animated SVG */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1200 600">
+          <motion.path
+            d="M 0 300 Q 200 100 400 300 T 800 300 T 1200 300"
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="0.5"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 4, repeat: Infinity, repeatType: "loop" }}
+          />
+          <motion.circle
+            cx="600"
+            cy="300"
+            r="150"
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="0.3"
+            initial={{ scale: 0.9, opacity: 0.3 }}
+            animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 6, repeat: Infinity }}
+          />
+        </svg>
+
+        <motion.div className="container-wide relative z-10" style={{ y: heroY }}>
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.span 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-primary text-sm font-semibold uppercase tracking-wider mb-6"
+            >
+              <BookOpen className="w-4 h-4" />
+              Our Blog
+            </motion.span>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6">
+              <AnimatedLetters text="Insights & Ideas" delay={0.1} />
+            </h1>
+            <RevealText delay={0.3}>
+              <p className="text-lg md:text-xl text-muted-foreground">
+                Thoughts on design, development, and building products that matter.
+              </p>
+            </RevealText>
+          </div>
+        </motion.div>
       </section>
 
+      {/* Featured Post */}
       {featuredPost && (
-        <section className="pb-12">
+        <section className="pb-12 relative z-10">
           <div className="container-wide">
-            <motion.article initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Link to={`/blog/${featuredPost.id}`} className="block group">
-                <div className="grid lg:grid-cols-2 gap-8 items-center card-glass p-4 md:p-8">
-                  <div className="relative overflow-hidden rounded-xl aspect-[16/10]">
-                    <img src={featuredPost.image} alt={featuredPost.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                    <div className="absolute top-4 left-4">
-                      <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">Featured</span>
+            <TiltCard>
+              <motion.article initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <Link to={`/blog/${featuredPost.id}`} className="block group">
+                  <div className="grid lg:grid-cols-2 gap-8 items-center card-glass p-4 md:p-8">
+                    <div className="relative overflow-hidden rounded-xl aspect-[16/10]">
+                      <motion.img 
+                        src={featuredPost.image} 
+                        alt={featuredPost.title} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                      />
+                      <div className="absolute top-4 left-4">
+                        <motion.span 
+                          className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-2"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Featured
+                        </motion.span>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="p-4">
+                      <motion.span 
+                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-primary text-sm font-semibold uppercase tracking-wider mb-4"
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        {featuredPost.category}
+                      </motion.span>
+                      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mt-2 mb-4 group-hover:text-primary transition-colors">{featuredPost.title}</h2>
+                      <p className="text-muted-foreground mb-6 text-lg">{featuredPost.excerpt}</p>
+                      <div className="flex items-center gap-4 text-muted-foreground text-sm">
+                        <span className="flex items-center gap-2 glass px-3 py-1 rounded-full">
+                          <Calendar className="w-4 h-4 text-primary" />
+                          {featuredPost.date}
+                        </span>
+                        <span className="flex items-center gap-2 glass px-3 py-1 rounded-full">
+                          <Clock className="w-4 h-4 text-primary" />
+                          {featuredPost.readTime}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-4">
-                    <span className="text-primary text-sm font-semibold uppercase tracking-wider">{featuredPost.category}</span>
-                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mt-2 mb-4 group-hover:text-primary transition-colors">{featuredPost.title}</h2>
-                    <p className="text-muted-foreground mb-6">{featuredPost.excerpt}</p>
-                    <div className="flex items-center gap-4 text-muted-foreground text-sm">
-                      <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{featuredPost.date}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{featuredPost.readTime}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </motion.article>
+                </Link>
+              </motion.article>
+            </TiltCard>
           </div>
         </section>
       )}
 
-      <section className="section-padding bg-card/30">
-        <div className="container-wide">
+      {/* Blog Grid */}
+      <section className="section-padding bg-card/30 relative">
+        {/* Grid Pattern */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-5">
+          <defs>
+            <pattern id="blog-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#blog-grid)" />
+        </svg>
+
+        <div className="container-wide relative z-10">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {regularPosts.map((post, index) => (
-              <motion.article key={post.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <Link to={`/blog/${post.id}`} className="block group">
-                  <div className="relative overflow-hidden rounded-2xl aspect-[3/2] mb-4">
-                    <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute top-4 left-4">
-                      <span className="glass px-3 py-1 rounded-full text-xs font-medium text-foreground">{post.category}</span>
+              <TiltCard key={post.id}>
+                <motion.article 
+                  initial={{ opacity: 0, y: 30 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }} 
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Link to={`/blog/${post.id}`} className="block group">
+                    <div className="relative overflow-hidden rounded-2xl aspect-[3/2] mb-4">
+                      <motion.img 
+                        src={post.image} 
+                        alt={post.title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                      />
+                      <div className="absolute top-4 left-4">
+                        <motion.span 
+                          className="glass px-3 py-1 rounded-full text-xs font-medium text-foreground"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          {post.category}
+                        </motion.span>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-muted-foreground text-sm mb-3">
-                    <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{post.date}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{post.readTime}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors">{post.title}</h3>
-                  <p className="text-muted-foreground text-sm">{post.excerpt}</p>
-                </Link>
-              </motion.article>
+                    <div className="flex items-center gap-4 text-muted-foreground text-sm mb-3">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        {post.date}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-primary" />
+                        {post.readTime}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors">{post.title}</h3>
+                    <p className="text-muted-foreground text-sm">{post.excerpt}</p>
+                  </Link>
+                </motion.article>
+              </TiltCard>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section-padding">
+      {/* Newsletter Section */}
+      <section className="section-padding relative">
+        <FloatingElement className="absolute top-10 right-10 w-24 h-24 opacity-20">
+          <Send className="w-full h-full text-primary" />
+        </FloatingElement>
+        <FloatingElement className="absolute bottom-10 left-10 w-16 h-16 opacity-20">
+          <Sparkles className="w-full h-full text-primary" />
+        </FloatingElement>
+
         <div className="container-wide">
-          <div className="card-glass p-12 text-center max-w-2xl mx-auto">
-            <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-              Subscribe to Our Newsletter
-            </motion.h2>
-            <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-muted-foreground mb-6">
-              Get the latest insights delivered to your inbox. No spam, just value.
-            </motion.p>
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <input type="email" placeholder="Enter your email" className="flex-1 px-4 py-3 rounded-full bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors" />
-              <motion.button className="btn-primary whitespace-nowrap" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>Subscribe</motion.button>
+          <TiltCard>
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="card-glass p-8 md:p-12 text-center max-w-2xl mx-auto relative overflow-hidden"
+            >
+              {/* Animated gradient background */}
+              <motion.div 
+                className="absolute inset-0 opacity-20"
+                style={{
+                  background: 'radial-gradient(circle at 50% 50%, hsl(var(--primary)), transparent 70%)'
+                }}
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.1, 0.2, 0.1]
+                }}
+                transition={{ duration: 4, repeat: Infinity }}
+              />
+
+              <div className="relative z-10">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6"
+                >
+                  <Send className="w-8 h-8 text-primary" />
+                </motion.div>
+
+                <motion.h2 
+                  initial={{ opacity: 0, y: 20 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }} 
+                  className="text-2xl md:text-4xl font-bold text-foreground mb-4"
+                >
+                  Subscribe to Our <span className="gradient-text">Newsletter</span>
+                </motion.h2>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }} 
+                  transition={{ delay: 0.1 }} 
+                  className="text-muted-foreground mb-8 text-lg"
+                >
+                  Get the latest insights delivered to your inbox. No spam, just value.
+                </motion.p>
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }} 
+                  transition={{ delay: 0.2 }} 
+                  className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto"
+                >
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email" 
+                    className="flex-1 px-6 py-4 rounded-full bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" 
+                  />
+                  <MagneticButton>
+                    <motion.button 
+                      className="btn-primary whitespace-nowrap px-8 py-4" 
+                      whileHover={{ scale: 1.05 }} 
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Subscribe
+                    </motion.button>
+                  </MagneticButton>
+                </motion.div>
+              </div>
             </motion.div>
-          </div>
+          </TiltCard>
         </div>
       </section>
     </div>
